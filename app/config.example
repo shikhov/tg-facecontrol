@@ -1,0 +1,27 @@
+bot_token = "your_bot_token"
+
+[defaults]
+emoji_list = "💎💩💩💩💩💩💩💩💩"
+emoji_rowsize = 3
+welcome_text = 'Для вступления в чат "%CHAT_TITLE%" нажмите на нужный значок'
+success_text = "Верно! Добро пожаловать в наш чат!"
+fail_text = "К сожалению, вы не прошли тест"
+error_text = "⚠️ Произошла ошибка"
+timeout_text = "К сожалению, вы не успели пройти тест за отведенное время"
+captcha_timeout = 120
+delete_joins = true
+logchatid = -1001122334455
+
+# HarryPotterChat
+[[groups]]
+id = -100123456789
+delete_joins = false
+
+# Basketball Fan Chat
+[[groups]]
+id = -100987654321
+emoji_list = "🏀🎈🎹🍕"
+emoji_rowsize = 4
+welcome_text = "Нет времени объяснять, жмите на мяч. У вас есть 10 секунд"
+captcha_timeout = 10
+logchatid = -1002243669518888
