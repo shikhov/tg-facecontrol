@@ -12,14 +12,11 @@ from config import config
 
 
 class Group:
-    def __init__(self, chat_id=None, chat=None):
-        if chat_id:
-            if isinstance(chat_id, str):
-                data = config.groups[int(chat_id)]
-            else:
-                data = config.groups[chat_id]
+    def __init__(self, chat_username=None, chat=None):
+        if chat_username:
+            data = config.groups[chat_username]
         elif chat:
-            data = config.groups[chat.id]
+            data = config.groups[chat.username]
         else:
             raise('Error object initialization')
 
@@ -53,10 +50,10 @@ except ValidationError as e:
     print(e.details)
     exit()
 
-config.allowed_chats = [g['id'] for g in config.groups] + \
+config.allowed_chats = [g['username'] for g in config.groups] + \
     [g['logchatid'] for g in config.groups if 'logchatid' in g] + \
     [config.defaults.logchatid]
-config.groups = {g['id']: g for g in config.groups}
+config.groups = {g['username']: g for g in config.groups}
 
 
 # Initialize bot and dispatcher
@@ -75,7 +72,7 @@ async def log(logchatid, text):
 
 
 async def isChatAllowed(chat: types.Chat):
-    if chat.id in config.allowed_chats:
+    if (chat.id in config.allowed_chats) or (chat.username in config.allowed_chats):
         return True
     if chat.type == 'private':
         return True
@@ -99,7 +96,7 @@ async def outer_middleware(handler, event, data):
 
 @router.message(F.new_chat_members)
 async def deleteJoinMessage(message: types.Message):
-    if message.chat.id not in config.groups:
+    if message.chat.username not in config.groups:
         return
     group = Group(chat=message.chat)
     if not group.delete_joins:
@@ -137,7 +134,7 @@ async def callbackHandler(query: types.CallbackQuery):
     msg_id = query.message.message_id
     logname = f'{hd.quote(user.full_name)} (@{user.username})' if user.username else hd.quote(user.full_name)
     (answer, chat_id, chat_username) = query.data.split('#')
-    group = Group(chat_id=chat_id)
+    group = Group(chat_username=chat_username)
     if group.is_right_answer(answer):
         try:
             await bot.approve_chat_join_request(chat_id, user.id)

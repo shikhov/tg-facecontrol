@@ -14,12 +14,12 @@ logchatid = -1001122334455
 
 # HarryPotterChat
 [[groups]]
-id = -100123456789
+username = "hpotterchat"
 delete_joins = false
 
 # Basketball Fan Chat
 [[groups]]
-id = -100987654321
+username = "@backetball_forever"
 emoji_list = "🏀🎈🎹🍕"
 emoji_rowsize = 4
 welcome_text = "Нет времени объяснять, жмите на мяч. У вас есть 10 секунд"

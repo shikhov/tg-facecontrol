@@ -1,10 +1,15 @@
 from dynaconf import Dynaconf, Validator
 
-def group_has_id(groups):
+def group_has_username(groups):
     for group in groups:
-        if not group.get('id'):
+        if not group.get('username'):
             return False
     return True
+
+def process_group_usernames(groups):
+    for group in groups:
+        group.username = group.username.replace('@', '')
+    return groups
 
 config = Dynaconf(
     settings_files=['/etc/config.toml'],
@@ -20,7 +25,16 @@ config = Dynaconf(
         Validator('defaults.captcha_timeout', must_exist=True, cast=int),
         Validator('defaults.delete_joins', must_exist=True, cast=bool),
         Validator('defaults.logchatid', default=None),
-        Validator('groups', must_exist=True, condition=group_has_id, messages={'condition': 'One or more groups has no id'})
+        Validator(
+            'groups',
+            must_exist=True,
+            condition=group_has_username,
+            messages={'condition': 'One or more groups has no username'}
+        ),
+        Validator(
+            'groups',          
+            cast=process_group_usernames
+        )
     ]
 )
 
