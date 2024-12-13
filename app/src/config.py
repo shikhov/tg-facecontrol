@@ -32,7 +32,7 @@ config = Dynaconf(
             messages={'condition': 'One or more groups has no username'}
         ),
         Validator(
-            'groups',          
+            'groups',
             cast=process_group_usernames
         )
     ]
