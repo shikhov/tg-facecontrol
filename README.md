@@ -2,7 +2,9 @@
 
 Простой и надежный бот, реализующий капчу для телеграм-чатов.
 
-![](https://github.com/shikhov/tg-facecontrol/blob/main/media/pic.jpg?raw=true)
+<div align="center">
+  <img class="logo" src="https://github.com/shikhov/tg-facecontrol/raw/main/media/pic.jpg" width="600px"/>
+</div>
 
 ## Ключевые особенности
 - не отвлекает участников своей работой, капча решается в личке с ботом
