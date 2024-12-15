@@ -12,9 +12,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build ./app --tag shikhov/tg-facecontrol
+    # - name: Build the Docker image
+    #   run: docker build ./app --tag shikhov/tg-facecontrol
     - name: Docker login
       run: docker login -u shikhov -p ${{secrets.DOCKER_HUB_TOKEN}}
     - name: Push to Docker Hub
-      run: docker push shikhov/tg-facecontrol:latest
+      # run: docker push shikhov/tg-facecontrol:latest
+      run: docker buildx build --push --platform linux/arm64/v8,linux/amd64 --tag shikhov/tg-facecontrol:latest .
