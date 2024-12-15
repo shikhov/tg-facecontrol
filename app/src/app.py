@@ -5,7 +5,7 @@ import regex
 
 from aiogram import Bot, Dispatcher, Router, F, types
 from aiogram.utils.text_decorations import html_decoration as hd
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder as KeyboardBuilder
 from aiogram.utils.callback_answer import CallbackAnswerMiddleware
 from aiogram.client.default import DefaultBotProperties
 from dynaconf import ValidationError
@@ -13,11 +13,11 @@ from config import config
 
 
 class Group:
-    def __init__(self, chat_username=None, chat=None):
-        if chat_username:
-            data = config.groups[chat_username]
+    def __init__(self, chat_id=None, chat=None):
+        if chat_id:
+            data = config.groups[int(chat_id)]
         elif chat:
-            data = config.groups[chat.username]
+            data = config.groups[chat.id]
         else:
             raise('Error object initialization')
 
@@ -51,10 +51,10 @@ except ValidationError as e:
     print(e.details)
     exit()
 
-config.allowed_chats = [g['username'] for g in config.groups] + \
+config.allowed_chats = [g['id'] for g in config.groups] + \
     [g['logchatid'] for g in config.groups if 'logchatid' in g] + \
     [config.defaults.logchatid]
-config.groups = {g['username']: g for g in config.groups}
+config.groups = {g['id']: g for g in config.groups}
 
 
 # Initialize bot and dispatcher
@@ -73,7 +73,7 @@ async def log(logchatid, text):
 
 
 async def isChatAllowed(chat: types.Chat):
-    if (chat.id in config.allowed_chats) or (chat.username in config.allowed_chats):
+    if chat.id in config.allowed_chats:
         return True
     if chat.type == 'private':
         return True
@@ -97,7 +97,7 @@ async def outer_middleware(handler, event, data):
 
 @router.message(F.new_chat_members)
 async def deleteJoinMessage(message: types.Message):
-    if message.chat.username not in config.groups:
+    if message.chat.id not in config.groups:
         return
     group = Group(chat=message.chat)
     if not group.delete_joins:
@@ -112,14 +112,17 @@ async def deleteJoinMessage(message: types.Message):
 @router.chat_join_request()
 async def processJoinRequest(update: types.ChatJoinRequest):
     chat = update.chat
-    user = update.from_user
+    if chat.id not in config.groups:
+        logging.warning(f'ChatJoinRequest from unknown group: {chat.id} {chat.title}')
+        return
     group = Group(chat=chat)
+    user = update.from_user
     logname = f'{hd.quote(user.full_name)} (@{user.username})' if user.username else hd.quote(user.full_name)
-    builder = InlineKeyboardBuilder()
+    kb = KeyboardBuilder()
     for emoji in group.random_emoji():
-        builder.button(text=emoji, callback_data=f'{emoji}#{chat.id}#{chat.username}')
-    builder.adjust(group.emoji_rowsize)
-    message = await bot.send_message(user.id, group.welcome_text, reply_markup=builder.as_markup())
+        kb.button(text=emoji, callback_data=f"{emoji}#{chat.id}#{chat.username or ''}")
+    kb.adjust(group.emoji_rowsize)
+    message = await bot.send_message(user.id, group.welcome_text, reply_markup=kb.as_markup())
     await log(group.logchatid, f'{logname} wants to join {chat.title}')
     await asyncio.sleep(group.captcha_timeout)
     try:
@@ -135,7 +138,7 @@ async def callbackHandler(query: types.CallbackQuery):
     msg_id = query.message.message_id
     logname = f'{hd.quote(user.full_name)} (@{user.username})' if user.username else hd.quote(user.full_name)
     (answer, chat_id, chat_username) = query.data.split('#')
-    group = Group(chat_username=chat_username)
+    group = Group(chat_id=chat_id)
     if group.is_right_answer(answer):
         try:
             await bot.approve_chat_join_request(chat_id, user.id)
@@ -143,8 +146,10 @@ async def callbackHandler(query: types.CallbackQuery):
             await bot.edit_message_text(group.error_text, chat_id=user.id, message_id=msg_id)
             return
 
-        kb = InlineKeyboardBuilder().button(text='Перейти', url='https://t.me/' + chat_username)
-        await bot.edit_message_text(group.success_text, chat_id=user.id, message_id=msg_id, reply_markup=kb.as_markup())
+        kb = None
+        if chat_username:
+            kb = KeyboardBuilder().button(text='Перейти', url='https://t.me/' + chat_username).as_markup()
+        await bot.edit_message_text(group.success_text, chat_id=user.id, message_id=msg_id, reply_markup=kb)
         await log(group.logchatid, f'{logname} succeeded')
     else:
         await bot.edit_message_text(group.fail_text, chat_id=user.id, message_id=msg_id)

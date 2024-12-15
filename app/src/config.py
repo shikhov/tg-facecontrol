@@ -1,14 +1,34 @@
 from dynaconf import Dynaconf, Validator
 
-def group_has_username(groups):
+def group_has_id(groups):
     for group in groups:
-        if not group.get('username'):
+        if not group.get('id'):
             return False
     return True
 
-def process_group_usernames(groups):
+def process_groups(groups):
     for group in groups:
-        group.username = group.username.replace('@', '')
+        group.id = int(group.id)
+        if group.get('emoji_list'):
+            group.emoji_list = str(group.emoji_list)
+        if group.get('emoji_rowsize'):
+            group.emoji_rowsize = int(group.emoji_rowsize)
+        if group.get('welcome_text'):
+            group.welcome_text = str(group.welcome_text)
+        if group.get('success_text'):
+            group.success_text = str(group.success_text)
+        if group.get('fail_text'):
+            group.fail_text = str(group.fail_text)
+        if group.get('error_text'):
+            group.error_text = str(group.error_text)
+        if group.get('timeout_text'):
+            group.timeout_text = str(group.timeout_text)
+        if group.get('captcha_timeout'):
+            group.captcha_timeout = int(group.captcha_timeout)
+        if group.get('delete_joins'):
+            group.delete_joins = bool(group.delete_joins)
+        if group.get('logchatid'):
+            group.logchatid = int(group.logchatid)
     return groups
 
 config = Dynaconf(
@@ -28,12 +48,12 @@ config = Dynaconf(
         Validator(
             'groups',
             must_exist=True,
-            condition=group_has_username,
-            messages={'condition': 'One or more groups has no username'}
+            condition=group_has_id,
+            messages={'condition': 'One or more groups has no id'},
         ),
         Validator(
             'groups',
-            cast=process_group_usernames
+            cast=process_groups
         )
     ]
 )
