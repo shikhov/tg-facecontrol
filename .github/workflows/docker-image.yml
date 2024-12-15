@@ -20,24 +20,19 @@ jobs:
     #   run: docker push shikhov/tg-facecontrol:latest
 
 
-    # - name: Set up Docker
-    #   uses: docker/setup-docker-action@v4
-    #   with:
-    #     daemon-config: |
-    #       {
-    #         "debug": true,
-    #         "features": {
-    #           "containerd-snapshotter": true
-    #         }
-    #       }
-
-   
+    - name: Set up Docker
+      uses: docker/setup-docker-action@v4
+      with:
+        daemon-config: |
+          {
+            "debug": true,
+            "features": {
+              "containerd-snapshotter": true
+            }
+          }
 
     - name: Docker login
       run: docker login -u shikhov -p ${{secrets.DOCKER_HUB_TOKEN}}
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -47,5 +42,5 @@ jobs:
       with:
         platforms: linux/amd64,linux/arm64
         context: ./app/
-        load: true
+        push: true
         tags: shikhov/tg-facecontrol:latest
