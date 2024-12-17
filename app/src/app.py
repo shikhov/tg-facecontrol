@@ -51,10 +51,10 @@ except ValidationError as e:
     print(e.details)
     exit()
 
-config.allowed_chats = [g['id'] for g in config.groups] + \
-    [g['logchatid'] for g in config.groups if 'logchatid' in g] + \
-    [config.defaults.logchatid]
-config.groups = {g['id']: g for g in config.groups}
+group_ids = [group['id'] for group in config.groups]
+log_ids = [group['logchatid'] for group in config.groups if 'logchatid' in group]
+config.allowed_chats = group_ids + log_ids + [config.defaults.logchatid]
+config.groups = {group['id']: group for group in config.groups}
 
 
 # Initialize bot and dispatcher
