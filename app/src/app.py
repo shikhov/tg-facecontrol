@@ -117,7 +117,7 @@ async def processJoinRequest(update: types.ChatJoinRequest):
         return
     group = Group(chat=chat)
     user = update.from_user
-    logname = f'{hd.quote(user.full_name)} (@{user.username})' if user.username else hd.quote(user.full_name)
+    logname = hd.quote(f'{user.full_name} (@{user.username})' if user.username else user.full_name)
     kb = KeyboardBuilder()
     for emoji in group.random_emoji():
         kb.button(text=emoji, callback_data=f"{emoji}#{chat.id}#{chat.username or ''}")
@@ -136,7 +136,7 @@ async def processJoinRequest(update: types.ChatJoinRequest):
 async def callbackHandler(query: types.CallbackQuery):
     user = query.from_user
     msg_id = query.message.message_id
-    logname = f'{hd.quote(user.full_name)} (@{user.username})' if user.username else hd.quote(user.full_name)
+    logname = hd.quote(f'{user.full_name} (@{user.username})' if user.username else user.full_name)
     (answer, chat_id, chat_username) = query.data.split('#')
     group = Group(chat_id=chat_id)
     if group.is_right_answer(answer):
