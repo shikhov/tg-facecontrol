@@ -34,9 +34,9 @@ class Group:
         self.captcha_timeout = data.get('captcha_timeout', config.defaults.captcha_timeout)
         self.delete_joins = data.get('delete_joins', config.defaults.delete_joins)
         self.logchatid = data.get('logchatid', config.defaults.logchatid)
-        self.user = None
 
         if message:
+            self.message = message
             self.user = message.from_user
 
         if request:
@@ -100,6 +100,14 @@ class Group:
                 return
             await self.log(f'{self.loguser} failed')
 
+    async def handle_join(self):
+        if not self.delete_joins:
+            return
+        try:
+            await self.message.delete()
+        except Exception:
+            logging.warning(f'Cannot delete join message in "{self.message.chat.title}" (no admin rights?)')
+
     async def log(self, text):
         logging.info(text)
         if not self.logchatid:
@@ -155,17 +163,10 @@ async def outer_middleware(handler, event, data):
 
 
 @router.message(F.new_chat_members)
-async def deleteJoinMessage(message: types.Message):
+async def joinMessageHandler(message: types.Message):
     if message.chat.id not in config.groups:
         return
-    group = Group(message=message)
-    if not group.delete_joins:
-        return
-
-    try:
-        await message.delete()
-    except Exception:
-        logging.warning(f'Cannot delete join message in "{message.chat.title}" (no admin rights?)')
+    await Group(message=message).handle_join()
 
 
 @router.chat_join_request()
