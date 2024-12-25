@@ -33,13 +33,29 @@ class Group:
         self.logchatid = data.get('logchatid', config.defaults.logchatid)
 
         if chat:
+            self.chat = chat
             self.welcome_text = self.welcome_text.replace('%CHAT_TITLE%', chat.title)
-
-    def random_emoji(self):
-        return random.sample(self.emoji_list, len(self.emoji_list))
 
     def is_right_answer(self, answer):
         return answer == self.emoji_list[0]
+
+    def buttons(self):
+        kb = KeyboardBuilder()
+        for emoji in random.sample(self.emoji_list, len(self.emoji_list)):
+            kb.button(text=emoji, callback_data=f"{emoji}#{self.chat.id}#{self.chat.username or ''}")
+        kb.adjust(self.emoji_rowsize)
+        return kb.as_markup()
+
+    async def send_captcha(self, user):
+        logname = hd.quote(f'{user.full_name} (@{user.username})' if user.username else user.full_name)
+        message = await bot.send_message(user.id, self.welcome_text, reply_markup=self.buttons())
+        await log(self.logchatid, f'{logname} wants to join {self.chat.title}')
+        await asyncio.sleep(self.captcha_timeout)
+        try:
+            await bot.decline_chat_join_request(self.chat.id, user.id)
+        except Exception:
+            return
+        await message.edit_text(self.timeout_text)
 
 
 # Configure logging
@@ -111,25 +127,10 @@ async def deleteJoinMessage(message: types.Message):
 
 @router.chat_join_request()
 async def processJoinRequest(update: types.ChatJoinRequest):
-    chat = update.chat
-    if chat.id not in config.groups:
-        logging.warning(f'ChatJoinRequest from unknown group: {chat.id} {chat.title}')
+    if update.chat.id not in config.groups:
+        logging.warning(f'ChatJoinRequest from unknown group: {update.chat.id} {update.chat.title}')
         return
-    group = Group(chat=chat)
-    user = update.from_user
-    logname = hd.quote(f'{user.full_name} (@{user.username})' if user.username else user.full_name)
-    kb = KeyboardBuilder()
-    for emoji in group.random_emoji():
-        kb.button(text=emoji, callback_data=f"{emoji}#{chat.id}#{chat.username or ''}")
-    kb.adjust(group.emoji_rowsize)
-    message = await bot.send_message(user.id, group.welcome_text, reply_markup=kb.as_markup())
-    await log(group.logchatid, f'{logname} wants to join {chat.title}')
-    await asyncio.sleep(group.captcha_timeout)
-    try:
-        await bot.decline_chat_join_request(chat.id, user.id)
-    except Exception:
-        return
-    await message.edit_text(group.timeout_text)
+    await Group(chat=update.chat).send_captcha(update.from_user)
 
 
 @router.callback_query()
