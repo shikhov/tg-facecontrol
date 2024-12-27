@@ -3,7 +3,8 @@ import asyncio
 import random
 import regex
 
-from aiogram import Bot, Dispatcher, Router, F, types
+from aiogram import Bot, Dispatcher, Router, F
+from aiogram.types import Message, Chat, ChatJoinRequest, CallbackQuery
 from aiogram.utils.text_decorations import html_decoration as hd
 from aiogram.utils.keyboard import InlineKeyboardBuilder as KBuilder
 from aiogram.utils.callback_answer import CallbackAnswerMiddleware
@@ -13,7 +14,7 @@ from config import config
 
 
 class Group:
-    def __init__(self, message: types.Message = None, request: types.ChatJoinRequest = None, callback: types.CallbackQuery = None):
+    def __init__(self, message: Message = None, request: ChatJoinRequest = None, callback: CallbackQuery = None):
         if message:
             data = config.groups[message.chat.id]
         elif request:
@@ -139,7 +140,7 @@ dp = Dispatcher()
 router = Router()
 
 
-async def isChatAllowed(chat: types.Chat):
+async def isChatAllowed(chat: Chat):
     if chat.id in config.allowed_chats:
         return True
     if chat.type == 'private':
@@ -147,7 +148,7 @@ async def isChatAllowed(chat: types.Chat):
 
     logging.warning(f'chat id {chat.id} ({chat.title}) is not allowed! Leaving chat')
     try:
-        await bot.leave_chat(chat.id)
+        await chat.leave()
     except Exception:
         pass
     return False
@@ -163,14 +164,14 @@ async def outer_middleware(handler, event, data):
 
 
 @router.message(F.new_chat_members)
-async def joinMessageHandler(message: types.Message):
+async def joinMessageHandler(message: Message):
     if message.chat.id not in config.groups:
         return
     await Group(message=message).handle_join()
 
 
 @router.chat_join_request()
-async def processJoinRequest(request: types.ChatJoinRequest):
+async def processJoinRequest(request: ChatJoinRequest):
     if request.chat.id not in config.groups:
         logging.warning(f'ChatJoinRequest from unknown group: {request.chat.id} {request.chat.title}')
         return
@@ -178,7 +179,7 @@ async def processJoinRequest(request: types.ChatJoinRequest):
 
 
 @router.callback_query()
-async def callbackHandler(callback: types.CallbackQuery):
+async def callbackHandler(callback: CallbackQuery):
     await Group(callback=callback).handle_callback()
 
 
