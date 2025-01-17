@@ -63,10 +63,10 @@ class Group:
         return kb.as_markup()
 
     def chat_link_button(self):
-        if not self.chat_username:
-            return None
-        kb = KBuilder().button(text='Перейти', url=f'https://t.me/{self.chat_username}')
-        return kb.as_markup()
+        if self.chat_username:
+            kb = KBuilder().button(text='Перейти', url=f'https://t.me/{self.chat_username}')
+            return kb.as_markup()
+        return None
 
     async def send_captcha(self):
         message = await bot.send_message(self.user.id, self.welcome_text, reply_markup=self.buttons())
@@ -102,21 +102,19 @@ class Group:
             await self.log(f'{self.loguser} failed')
 
     async def handle_join(self):
-        if not self.delete_joins:
-            return
-        try:
-            await self.message.delete()
-        except Exception:
-            logging.warning(f'Cannot delete join message in "{self.message.chat.title}" (no admin rights?)')
+        if self.delete_joins:
+            try:
+                await self.message.delete()
+            except Exception:
+                logging.warning(f'Cannot delete join message in "{self.message.chat.title}" (no admin rights?)')
 
     async def log(self, text):
         logging.info(text)
-        if not self.logchatid:
-            return
-        try:
-            await bot.send_message(self.logchatid, text)
-        except Exception:
-            logging.warning(f'Cannot log to chat id: {self.logchatid}')
+        if self.logchatid:
+            try:
+                await bot.send_message(self.logchatid, text)
+            except Exception:
+                logging.warning(f'Cannot log to chat id: {self.logchatid}')
 
 
 # Configure logging
@@ -159,23 +157,19 @@ async def outer_middleware(handler, event, data):
     chat = getattr(event.event, "chat", None)
     if chat and not await isChatAllowed(chat):
         return
-
     return await handler(event, data)
 
 
 @router.message(F.new_chat_members)
 async def joinMessageHandler(message: Message):
-    if message.chat.id not in config.groups:
-        return
-    await Group(message=message).handle_join()
+    if message.chat.id in config.groups:
+        await Group(message=message).handle_join()
 
 
 @router.chat_join_request()
 async def processJoinRequest(request: ChatJoinRequest):
-    if request.chat.id not in config.groups:
-        logging.warning(f'ChatJoinRequest from unknown group: {request.chat.id} {request.chat.title}')
-        return
-    await Group(request=request).send_captcha()
+    if request.chat.id in config.groups:
+        await Group(request=request).send_captcha()
 
 
 @router.callback_query()
