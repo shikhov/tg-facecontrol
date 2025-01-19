@@ -43,10 +43,12 @@ class Group:
         if request:
             self.chat = request.chat
             self.user = request.from_user
+            self.key = f'{self.chat.id}_{self.user.id}'
             self.welcome_text = self.welcome_text.replace('%CHAT_TITLE%', self.chat.title)
 
         if callback:
             self.user = callback.from_user
+            self.key = f'{self.chat_id}_{self.user.id}'
             self.msg_id = callback.message.message_id
 
         self.loguser = f'{self.user.full_name} @{self.user.username}' if self.user.username else self.user.full_name
@@ -69,16 +71,24 @@ class Group:
         return None
 
     async def send_captcha(self):
+        if self.key in active_requests:
+            return
         message = await bot.send_message(self.user.id, self.welcome_text, reply_markup=self.buttons())
+        active_requests[self.key] = message.message_id
         await self.log(f'{self.loguser} is trying to join {self.chat.title}')
         await asyncio.sleep(self.captcha_timeout)
+
+        if active_requests.get(self.key, 0) != message.message_id:
+            return
         try:
             await bot.decline_chat_join_request(self.chat.id, self.user.id)
         except Exception:
-            return
+            pass
         await message.edit_text(self.timeout_text)
+        active_requests.pop(self.key, None)
 
     async def handle_callback(self):
+        active_requests.pop(self.key, None)
         if self.is_right_answer():
             try:
                 await bot.approve_chat_join_request(self.chat_id, self.user.id)
@@ -130,7 +140,7 @@ group_ids = [group['id'] for group in config.groups]
 log_ids = [group['logchatid'] for group in config.groups if 'logchatid' in group]
 config.allowed_chats = group_ids + log_ids + [config.defaults.logchatid]
 config.groups = {group['id']: group for group in config.groups}
-
+active_requests = {}
 
 # Initialize bot and dispatcher
 bot = Bot(token=config.bot_token, default=DefaultBotProperties(parse_mode='HTML'))
