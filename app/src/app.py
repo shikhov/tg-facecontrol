@@ -80,12 +80,13 @@ class Group:
 
         if active_requests.get(self.key, 0) != message.message_id:
             return
+
+        active_requests.pop(self.key, None)
         try:
             await bot.decline_chat_join_request(self.chat.id, self.user.id)
         except Exception:
             pass
         await message.edit_text(self.timeout_text)
-        active_requests.pop(self.key, None)
 
     async def handle_callback(self):
         active_requests.pop(self.key, None)
