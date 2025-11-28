@@ -3,7 +3,7 @@ import asyncio
 import random
 import regex
 
-from aiogram import Bot, Dispatcher, Router, F
+from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, Chat, ChatJoinRequest, CallbackQuery
 from aiogram.utils.text_decorations import html_decoration as hd
 from aiogram.utils.keyboard import InlineKeyboardBuilder as KBuilder
@@ -146,7 +146,6 @@ active_requests = {}
 # Initialize bot and dispatcher
 bot = Bot(token=config.bot_token, default=DefaultBotProperties(parse_mode='HTML'))
 dp = Dispatcher()
-router = Router()
 
 
 async def isChatAllowed(chat: Chat):
@@ -165,31 +164,30 @@ async def isChatAllowed(chat: Chat):
 
 @dp.update.outer_middleware()
 async def outer_middleware(handler, event, data):
-    chat = getattr(event.event, "chat", None)
+    chat = getattr(event.event, 'chat', None)
     if chat and not await isChatAllowed(chat):
         return
     return await handler(event, data)
 
 
-@router.message(F.new_chat_members)
+@dp.message(F.new_chat_members)
 async def joinMessageHandler(message: Message):
     if message.chat.id in config.groups:
         await Group(message=message).handle_join()
 
 
-@router.chat_join_request()
+@dp.chat_join_request()
 async def processJoinRequest(request: ChatJoinRequest):
     if request.chat.id in config.groups:
         await Group(request=request).send_captcha()
 
 
-@router.callback_query()
+@dp.callback_query()
 async def callbackHandler(callback: CallbackQuery):
     await Group(callback=callback).handle_callback()
 
 
 async def main():
-    dp.include_router(router)
     dp.callback_query.middleware(CallbackAnswerMiddleware())
     await dp.start_polling(bot)
 
