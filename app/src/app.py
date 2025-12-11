@@ -137,9 +137,10 @@ except ValidationError as e:
     print(e.details)
     exit()
 
-group_ids = [group['id'] for group in config.groups]
-log_ids = [group['logchatid'] for group in config.groups if 'logchatid' in group]
-config.allowed_chats = group_ids + log_ids + [config.defaults.logchatid]
+config.allowed_chats = \
+    [group['id'] for group in config.groups] + \
+    [group['logchatid'] for group in config.groups if 'logchatid' in group] + \
+    [config.defaults.logchatid]
 config.groups = {group['id']: group for group in config.groups}
 active_requests = {}
 
@@ -148,13 +149,13 @@ bot = Bot(token=config.bot_token, default=DefaultBotProperties(parse_mode='HTML'
 dp = Dispatcher()
 
 
-async def isChatAllowed(chat: Chat):
+async def is_chat_allowed(chat: Chat):
     if chat.id in config.allowed_chats:
         return True
     if chat.type == 'private':
         return True
 
-    logging.warning(f'chat id {chat.id} ({chat.title}) is not allowed! Leaving chat')
+    logging.warning(f'Chat id {chat.id} ({chat.title}) is not allowed! Leaving chat')
     try:
         await chat.leave()
     except Exception:
@@ -165,25 +166,25 @@ async def isChatAllowed(chat: Chat):
 @dp.update.outer_middleware()
 async def outer_middleware(handler, event, data):
     chat = getattr(event.event, 'chat', None)
-    if chat and not await isChatAllowed(chat):
+    if chat and not await is_chat_allowed(chat):
         return
     return await handler(event, data)
 
 
 @dp.message(F.new_chat_members)
-async def joinMessageHandler(message: Message):
+async def join_message_handler(message: Message):
     if message.chat.id in config.groups:
         await Group(message=message).handle_join()
 
 
 @dp.chat_join_request()
-async def processJoinRequest(request: ChatJoinRequest):
+async def join_request_handler(request: ChatJoinRequest):
     if request.chat.id in config.groups:
         await Group(request=request).send_captcha()
 
 
 @dp.callback_query()
-async def callbackHandler(callback: CallbackQuery):
+async def callback_handler(callback: CallbackQuery):
     await Group(callback=callback).handle_callback()
 
 
