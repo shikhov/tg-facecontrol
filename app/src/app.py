@@ -9,8 +9,14 @@ from aiogram.utils.text_decorations import html_decoration as hd
 from aiogram.utils.keyboard import InlineKeyboardBuilder as KBuilder
 from aiogram.utils.callback_answer import CallbackAnswerMiddleware
 from aiogram.client.default import DefaultBotProperties
-from dynaconf import ValidationError
-from config import config
+from config import Config, ConfigFileError
+
+
+try:
+    config = Config()
+except ConfigFileError as exc:
+    print(exc)
+    raise SystemExit(1)
 
 
 class Group:
@@ -25,16 +31,16 @@ class Group:
         else:
             raise('Error object initialization')
 
-        self.emoji_list = regex.findall(r'\X', data.get('emoji_list', config.defaults.emoji_list))
-        self.emoji_rowsize = data.get('emoji_rowsize', config.defaults.emoji_rowsize)
-        self.welcome_text = data.get('welcome_text', config.defaults.welcome_text)
-        self.success_text = data.get('success_text', config.defaults.success_text)
-        self.fail_text = data.get('fail_text', config.defaults.fail_text)
-        self.error_text = data.get('error_text', config.defaults.error_text)
-        self.timeout_text = data.get('timeout_text', config.defaults.timeout_text)
-        self.captcha_timeout = data.get('captcha_timeout', config.defaults.captcha_timeout)
-        self.delete_joins = data.get('delete_joins', config.defaults.delete_joins)
-        self.logchatid = data.get('logchatid', config.defaults.logchatid)
+        self.emoji_list = regex.findall(r'\X', data.emoji_list)
+        self.emoji_rowsize = data.emoji_rowsize
+        self.welcome_text = data.welcome_text
+        self.success_text = data.success_text
+        self.fail_text = data.fail_text
+        self.error_text = data.error_text
+        self.timeout_text = data.timeout_text
+        self.captcha_timeout = data.captcha_timeout
+        self.delete_joins = data.delete_joins
+        self.logchatid = data.logchatid
 
         if message:
             self.message = message
@@ -131,17 +137,6 @@ class Group:
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-try:
-    config.validators.validate_all()
-except ValidationError as e:
-    print(e.details)
-    exit()
-
-config.allowed_chats = \
-    [group['id'] for group in config.groups] + \
-    [group['logchatid'] for group in config.groups if 'logchatid' in group] + \
-    [config.defaults.logchatid]
-config.groups = {group['id']: group for group in config.groups}
 active_requests = {}
 
 # Initialize bot and dispatcher

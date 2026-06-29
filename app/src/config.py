@@ -1,62 +1,111 @@
-from dynaconf import Dynaconf, Validator
+﻿from pathlib import Path
 
-def group_has_id(groups):
-    for group in groups:
-        if not group.get('id'):
-            return False
-    return True
 
-def process_groups(groups):
-    for group in groups:
-        group.id = int(group.id)
-        if group.get('emoji_list'):
-            group.emoji_list = str(group.emoji_list)
-        if group.get('emoji_rowsize'):
-            group.emoji_rowsize = int(group.emoji_rowsize)
-        if group.get('welcome_text'):
-            group.welcome_text = str(group.welcome_text)
-        if group.get('success_text'):
-            group.success_text = str(group.success_text)
-        if group.get('fail_text'):
-            group.fail_text = str(group.fail_text)
-        if group.get('error_text'):
-            group.error_text = str(group.error_text)
-        if group.get('timeout_text'):
-            group.timeout_text = str(group.timeout_text)
-        if group.get('captcha_timeout'):
-            group.captcha_timeout = int(group.captcha_timeout)
-        if group.get('delete_joins'):
-            group.delete_joins = bool(group.delete_joins)
-        if group.get('logchatid'):
-            group.logchatid = int(group.logchatid)
-    return groups
+import tomli
+from pydantic import BaseModel, Field, ValidationError
 
-config = Dynaconf(
-    settings_files=['/etc/config.toml'],
-    validators=[
-        Validator('bot_token', must_exist=True, cast=str),
-        Validator('defaults.emoji_list', must_exist=True, cast=str),
-        Validator('defaults.emoji_rowsize', must_exist=True, gte=1, lte=8, cast=int),
-        Validator('defaults.welcome_text', must_exist=True, cast=str),
-        Validator('defaults.success_text', must_exist=True, cast=str),
-        Validator('defaults.fail_text', must_exist=True, cast=str),
-        Validator('defaults.error_text', must_exist=True, cast=str),
-        Validator('defaults.timeout_text', must_exist=True, cast=str),
-        Validator('defaults.captcha_timeout', must_exist=True, cast=int),
-        Validator('defaults.delete_joins', must_exist=True, cast=bool),
-        Validator('defaults.logchatid', default=None),
-        Validator(
-            'groups',
-            must_exist=True,
-            condition=group_has_id,
-            messages={'condition': 'One or more groups has no id'},
-        ),
-        Validator(
-            'groups',
-            cast=process_groups
+
+CONFIG_PATH = Path('/etc/config.toml')
+
+
+class DefaultsConfig(BaseModel):
+    emoji_list: str
+    emoji_rowsize: int = Field(ge=1, le=8)
+    welcome_text: str
+    success_text: str
+    fail_text: str
+    error_text: str
+    timeout_text: str
+    captcha_timeout: int
+    delete_joins: bool
+    logchatid: int | None = None
+
+
+class GroupConfig(BaseModel):
+    id: int
+    emoji_list: str | None = None
+    emoji_rowsize: int | None = Field(default=None, ge=1, le=8)
+    welcome_text: str | None = None
+    success_text: str | None = None
+    fail_text: str | None = None
+    error_text: str | None = None
+    timeout_text: str | None = None
+    captcha_timeout: int | None = None
+    delete_joins: bool | None = None
+    logchatid: int | None = None
+
+
+class ResolvedGroupConfig(BaseModel):
+    id: int
+    emoji_list: str
+    emoji_rowsize: int = Field(ge=1, le=8)
+    welcome_text: str
+    success_text: str
+    fail_text: str
+    error_text: str
+    timeout_text: str
+    captcha_timeout: int
+    delete_joins: bool
+    logchatid: int | None = None
+
+
+class AppConfig(BaseModel):
+    bot_token: str
+    defaults: DefaultsConfig
+    groups: list[GroupConfig]
+
+
+class ConfigFileError(Exception):
+    pass
+
+
+def format_validation_errors(exc: ValidationError) -> str:
+    messages = []
+    for error in exc.errors():
+        location = '.'.join(str(part) for part in error['loc'])
+        message = error['msg']
+        messages.append(f'{location}: {message}' if location else message)
+    return '\n'.join(messages)
+
+
+def load_config(path: Path) -> AppConfig:
+    try:
+        with path.open('rb') as config_file:
+            data = tomli.load(config_file)
+    except FileNotFoundError as exc:
+        raise ConfigFileError(f'Config file not found: {path}') from exc
+    except tomli.TOMLDecodeError as exc:
+        raise ConfigFileError(f'Cannot parse config file {path}: {exc}') from exc
+    except OSError as exc:
+        raise ConfigFileError(f'Cannot read config file {path}: {exc}') from exc
+
+    try:
+        return AppConfig.model_validate(data)
+    except ValidationError as exc:
+        message = format_validation_errors(exc)
+        raise ConfigFileError(f'Invalid config file {path}\n{message}') from exc
+
+
+class Config:
+    def __init__(self, path: Path = CONFIG_PATH):
+        self.path = path
+        self.reload()
+
+    def _resolve_group(self, defaults: DefaultsConfig, group: GroupConfig) -> ResolvedGroupConfig:
+        data = defaults.model_dump()
+        data.update(group.model_dump(exclude_none=True))
+        return ResolvedGroupConfig.model_validate(data)
+
+    def reload(self) -> None:
+        loaded_config = load_config(self.path)
+        self.bot_token = loaded_config.bot_token
+        self.defaults = loaded_config.defaults
+        self.groups = {
+            group.id: self._resolve_group(loaded_config.defaults, group)
+            for group in loaded_config.groups
+        }
+        self.allowed_chats = set(
+            [group.id for group in loaded_config.groups] + \
+            [group.logchatid for group in loaded_config.groups] + \
+            [loaded_config.defaults.logchatid]
         )
-    ]
-)
-
-
-
